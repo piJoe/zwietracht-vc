@@ -105,12 +105,12 @@ export async function connectAndProduce(
 
   async function startProduce() {
     console.log("start producing");
-    const deviceId = document.location.hash.includes("cable")
-      ? "3cddd62789a263b613d361e7d6590ca5d5b32f4f576f51dd5f21c71bea4227b4"
-      : "communications";
+    // const deviceId = document.location.hash.includes("cable")
+    //   ? "3cddd62789a263b613d361e7d6590ca5d5b32f4f576f51dd5f21c71bea4227b4"
+    //   : "communications";
     const stream = await navigator.mediaDevices.getUserMedia({
       audio: {
-        deviceId,
+        // deviceId,
         noiseSuppression: false,
         echoCancellation: false,
         autoGainControl: false,
@@ -200,6 +200,31 @@ export async function connectAndProduce(
     startProduce: async () => {
       await startProduce();
     },
+    changeProducerStream: async (deviceId) => {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          deviceId,
+          noiseSuppression: false,
+          echoCancellation: false,
+          autoGainControl: false,
+          channelCount: 2,
+        },
+      });
+      const audioTrack = stream.getAudioTracks()[0];
+      connection.producer?.replaceTrack({ track: audioTrack });
+
+      let isSpeaking = false;
+      let lastMonitoringChange = Date.now();
+      monitorAudio(stream, (speaking, power) => {
+        if (lastMonitoringChange > Date.now() - 300) return;
+
+        if (speaking != isSpeaking) {
+          lastMonitoringChange = Date.now();
+          isSpeaking = speaking;
+          clientSocket.emit("speaking", isSpeaking);
+        }
+      });
+    },
   };
 }
 
@@ -220,7 +245,10 @@ export function monitorAudio(
     speechPower: 0,
   };
   const monitor = () => {
-    if (!stream.active) return;
+    if (!stream.active) {
+      console.log("stream became inactive, cancel monitoring");
+      return;
+    }
 
     analyser.getByteFrequencyData(frequencyData);
 
@@ -253,6 +281,14 @@ export function monitorAudio(
   setTimeout(monitor, 50);
 
   return monitoring;
+}
+
+export async function getAudioInputDevices() {
+  await navigator.mediaDevices.getUserMedia({ audio: true });
+  const devices = (await navigator.mediaDevices.enumerateDevices()).filter(
+    (d) => d.kind === "audioinput"
+  );
+  return devices;
 }
 
 // const rtcSocket = io("ws://:8099/webrtc", { path: "/socket" });

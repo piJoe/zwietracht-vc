@@ -1,7 +1,7 @@
 import { render } from "solid-js/web";
 import { createEffect, createMemo, createSignal, For } from "solid-js";
 import { io } from "socket.io-client";
-import { connectAndProduce, monitorAudio } from "./rtc-voice";
+import { connectAndProduce, getAudioInputDevices } from "./rtc-voice";
 import { CLIENT_ENV } from "./env";
 
 let msginput: HTMLInputElement;
@@ -16,6 +16,7 @@ const [muted, setMuted] = createSignal(false);
 const [deafened, setDeafened] = createSignal(false);
 const [currentVoiceRoom, setCurrentVoiceRoom] = createSignal(null);
 const [userSpeaking, setUserSpeaking] = createSignal({});
+const [audioDevices, setAudioDevices] = createSignal([]);
 
 const socket = io(CLIENT_ENV.SOCKET_IO_URL, { path: "/socket" });
 
@@ -26,13 +27,6 @@ const self = {
 socket.on("connect", () => {
   self.userId = socket.id;
 });
-
-// await navigator.mediaDevices.getUserMedia({ audio: true });
-// console.log(
-//   (await navigator.mediaDevices.enumerateDevices()).filter(
-//     (d) => d.kind === "audioinput"
-//   )
-// );
 
 socket.on("channels", (channels: any) => {
   setAllChannels(() => channels.map((c) => c.name));
@@ -87,7 +81,7 @@ socket.on("speaking", ({ userId, isSpeaking }) => {
   }));
 });
 
-socket.on("joinvoice", ({ user, channel }) => {
+socket.on("joinvoice", async ({ user, channel }) => {
   setVoiceRooms((prev) => ({
     ...prev,
     [channel]: [...prev[channel], user],
@@ -108,6 +102,10 @@ socket.on("joinvoice", ({ user, channel }) => {
       .forEach(async (u) => {
         await self.rtcConnection?.consume(u);
       });
+
+    const devices = await getAudioInputDevices();
+    console.log(devices);
+    setAudioDevices(devices);
   } else {
     self.rtcConnection?.consume(user);
   }
@@ -291,6 +289,21 @@ export default function ChatApp() {
                 {deafened() ? "Undeafen" : "Deafen"}
               </button>
             </div>
+          )}
+          {audioDevices().length > 0 && (
+            <select
+              class="bg-gray-600 p-1 mt-2 w-full rounded-md text-white outline-none"
+              onInput={async (e) => {
+                const deviceId = e.target.value;
+                await self.rtcConnection?.changeProducerStream(deviceId);
+              }}
+            >
+              <For each={audioDevices()}>
+                {(device) => (
+                  <option value={device.deviceId}>{device.label}</option>
+                )}
+              </For>
+            </select>
           )}
           {/* TODO: ADD MIC SELECT HERE!! */}
         </div>
