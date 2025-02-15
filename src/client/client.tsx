@@ -1,7 +1,7 @@
 import { render } from "solid-js/web";
 import { createEffect, createMemo, createSignal, For } from "solid-js";
 import { io } from "socket.io-client";
-import { connectAndProduce } from "./rtc-voice";
+import { connectAndProduce, monitorAudio } from "./rtc-voice";
 import { CLIENT_ENV } from "./env";
 
 let msginput: HTMLInputElement;
@@ -15,6 +15,7 @@ const [input, setInput] = createSignal("");
 const [muted, setMuted] = createSignal(false);
 const [deafened, setDeafened] = createSignal(false);
 const [currentVoiceRoom, setCurrentVoiceRoom] = createSignal(null);
+const [userSpeaking, setUserSpeaking] = createSignal({});
 
 const socket = io(CLIENT_ENV.SOCKET_IO_URL, { path: "/socket" });
 
@@ -79,6 +80,13 @@ socket.on("chatmsg", (incomingMsg) => {
   }
 });
 
+socket.on("speaking", ({ userId, isSpeaking }) => {
+  setUserSpeaking((prev) => ({
+    ...prev,
+    [userId]: isSpeaking,
+  }));
+});
+
 socket.on("joinvoice", ({ user, channel }) => {
   setVoiceRooms((prev) => ({
     ...prev,
@@ -97,8 +105,8 @@ socket.on("joinvoice", ({ user, channel }) => {
     );
     users
       .filter((u) => u !== self.userId)
-      .forEach((u) => {
-        self.rtcConnection?.consume(u);
+      .forEach(async (u) => {
+        await self.rtcConnection?.consume(u);
       });
   } else {
     self.rtcConnection?.consume(user);
@@ -128,7 +136,8 @@ const joinVoiceConnection = async () => {
   if (res && res.connectionToken) {
     self.rtcConnection = await connectAndProduce(
       self.userId,
-      res.connectionToken
+      res.connectionToken,
+      socket
     );
     console.log("joining");
     return;
@@ -217,7 +226,16 @@ export default function ChatApp() {
                     <For each={voiceRooms()[channel]}>
                       {(user) => (
                         <div class="flex items-center gap-1 mt-1">
-                          <div class="text-lg">🔵</div>
+                          <div
+                            class={`text-lg ${
+                              currentVoiceRoom() === channel &&
+                              userSpeaking()[user]
+                                ? "text-white"
+                                : "text-white/20"
+                            }`}
+                          >
+                            🔵
+                          </div>
                           {user}
                         </div>
                       )}

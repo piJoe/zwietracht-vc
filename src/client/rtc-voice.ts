@@ -14,7 +14,11 @@ const connection: Connection = {
   producer: null,
 };
 
-export async function connectAndProduce(userId: string, token: string) {
+export async function connectAndProduce(
+  userId: string,
+  token: string,
+  clientSocket: Socket
+) {
   if (connection.socket?.connected) return;
   connection.socket?.close();
 
@@ -101,8 +105,12 @@ export async function connectAndProduce(userId: string, token: string) {
 
   async function startProduce() {
     console.log("start producing");
+    const deviceId = document.location.hash.includes("cable")
+      ? "3cddd62789a263b613d361e7d6590ca5d5b32f4f576f51dd5f21c71bea4227b4"
+      : "communications";
     const stream = await navigator.mediaDevices.getUserMedia({
       audio: {
+        deviceId,
         noiseSuppression: false,
         echoCancellation: false,
         autoGainControl: false,
@@ -123,6 +131,18 @@ export async function connectAndProduce(userId: string, token: string) {
         opusMaxAverageBitrate: 64_000,
       },
       zeroRtpOnPause: true, // TODO: check if this is good on older browsers too
+    });
+
+    let isSpeaking = false;
+    let lastMonitoringChange = Date.now();
+    monitorAudio(stream, (speaking, power) => {
+      if (lastMonitoringChange > Date.now() - 300) return;
+
+      if (speaking != isSpeaking) {
+        lastMonitoringChange = Date.now();
+        isSpeaking = speaking;
+        clientSocket.emit("speaking", isSpeaking);
+      }
     });
 
     connection.producer.observer.on("close", () => {
@@ -169,6 +189,7 @@ export async function connectAndProduce(userId: string, token: string) {
 
       // TODO: check if we need this lol
       // document.body.append(audio);
+      return consumerStream;
     },
     closeConsume: (userId: string) => {
       // TODO: find matching consumer and close
@@ -180,6 +201,58 @@ export async function connectAndProduce(userId: string, token: string) {
       await startProduce();
     },
   };
+}
+
+export function monitorAudio(
+  stream: MediaStream,
+  callback: (speaking: boolean, power: number) => void
+) {
+  const ctx = new AudioContext();
+  const analyser = ctx.createAnalyser();
+  analyser.fftSize = 2048;
+
+  const source = ctx.createMediaStreamSource(stream);
+  source.connect(analyser);
+
+  let frequencyData = new Uint8Array(analyser.frequencyBinCount);
+  const monitoring = {
+    speaking: false,
+    speechPower: 0,
+  };
+  const monitor = () => {
+    if (!stream.active) return;
+
+    analyser.getByteFrequencyData(frequencyData);
+
+    const sampleRate = ctx.sampleRate;
+    const binSize = sampleRate / analyser.fftSize;
+
+    let sumPower = 0;
+    let speechBins = 0;
+
+    for (let i = 0; i < frequencyData.length; i++) {
+      const freq = i * binSize;
+      if (freq >= 300 && freq <= 3000) {
+        sumPower += frequencyData[i];
+        speechBins++;
+      }
+    }
+
+    const power = sumPower / speechBins;
+    const speaking = power > 1;
+
+    monitoring.speechPower = power;
+    monitoring.speaking = speaking;
+
+    if (callback) {
+      callback(speaking, power);
+    }
+
+    setTimeout(monitor, 50);
+  };
+  setTimeout(monitor, 50);
+
+  return monitoring;
 }
 
 // const rtcSocket = io("ws://:8099/webrtc", { path: "/socket" });

@@ -117,6 +117,10 @@ io.on("connection", (socket) => {
     });
   });
 
+  socket.on("speaking", (isSpeaking: boolean) => {
+    io.emit("speaking", { userId, isSpeaking });
+  });
+
   socket.on("joinvoice", (channelName, callback) => {
     if (!channelExists(channelName)) return;
     const token = joinVoice(userId, channelName);
