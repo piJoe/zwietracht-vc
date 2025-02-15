@@ -6,8 +6,9 @@
   "type": "module",
   "scripts": {
     "dev:client": "vite",
+    "dev:server": "tsx watch --env-file=.env ./src/server/server.ts",
     "build:client": "vite build",
-    "dev:server": "tsx watch --env-file=.env ./src/server/server.ts"
+    "build:server": "esbuild ./src/server/server.ts --bundle --packages=external --platform=node --format=esm --outfile=dist-server/server.js"
   },
   "author": "",
   "license": "ISC",
