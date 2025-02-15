@@ -14,15 +14,19 @@ import {
   getUserChannel,
   userInChannel,
 } from "./server.js";
+import { SERVER_ENV } from "./env.js";
 
 const MAX_ALLOWED_BITRATE_VOICE = 512_000;
 
 const listenInfos: TransportListenInfo[] = [
   {
-    portRange: { min: 9_000, max: 9_100 },
+    portRange: {
+      min: SERVER_ENV.WEBRTC_PORT_RANGE_MIN,
+      max: SERVER_ENV.WEBRTC_PORT_RANGE_MAX,
+    },
     protocol: "udp",
     ip: "0.0.0.0",
-    announcedAddress: "192.168.88.254",
+    announcedAddress: SERVER_ENV.WEBRTC_ANNOUNCED_ADDRESS,
   },
 ];
 

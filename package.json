@@ -7,7 +7,7 @@
   "scripts": {
     "dev:client": "vite",
     "build:client": "vite build",
-    "dev:server": "tsx watch ./src/server/server.ts"
+    "dev:server": "tsx watch --env-file=.env ./src/server/server.ts"
   },
   "author": "",
   "license": "ISC",

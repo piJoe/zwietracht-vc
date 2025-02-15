@@ -3,6 +3,7 @@ import type { Consumer, ConsumerOptions } from "mediasoup-client/lib/Consumer";
 import type { Producer } from "mediasoup-client/lib/types";
 import { Socket } from "socket.io-client";
 import { io } from "socket.io-client";
+import { CLIENT_ENV } from "./env";
 
 interface Connection {
   socket?: Socket;
@@ -17,7 +18,7 @@ export async function connectAndProduce(userId: string, token: string) {
   if (connection.socket?.connected) return;
   connection.socket?.close();
 
-  connection.socket = io("ws://:8099/webrtc", {
+  connection.socket = io(`${CLIENT_ENV.SOCKET_IO_URL}/webrtc`, {
     path: "/socket",
     auth: {
       userId,

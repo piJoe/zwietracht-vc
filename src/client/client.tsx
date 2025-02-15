@@ -2,6 +2,7 @@ import { render } from "solid-js/web";
 import { createEffect, createMemo, createSignal, For } from "solid-js";
 import { io } from "socket.io-client";
 import { connectAndProduce } from "./rtc-voice";
+import { CLIENT_ENV } from "./env";
 
 let msginput: HTMLInputElement;
 
@@ -15,7 +16,7 @@ const [muted, setMuted] = createSignal(false);
 const [deafened, setDeafened] = createSignal(false);
 const [currentVoiceRoom, setCurrentVoiceRoom] = createSignal(null);
 
-const socket = io("ws://:8099/", { path: "/socket" });
+const socket = io(CLIENT_ENV.SOCKET_IO_URL, { path: "/socket" });
 
 const self = {
   userId: null,

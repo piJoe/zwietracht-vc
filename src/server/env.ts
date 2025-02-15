@@ -1,0 +1,11 @@
+export const SERVER_ENV = {
+  SOCKET_IO_PORT: parseInt(process.env.SERVER_SOCKET_IO_PORT ?? "8099"),
+  WEBRTC_PORT_RANGE_MIN: parseInt(
+    process.env.SERVER_WEBRTC_PORT_RANGE_MIN ?? "9000"
+  ),
+  WEBRTC_PORT_RANGE_MAX: parseInt(
+    process.env.SERVER_WEBRTC_PORT_RANGE_MAX ?? "9100"
+  ),
+  WEBRTC_ANNOUNCED_ADDRESS:
+    process.env.SERVER_WEBRTC_ANNOUNCED_ADDRESS ?? "127.0.0.1",
+};

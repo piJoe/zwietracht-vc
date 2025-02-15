@@ -6,12 +6,13 @@ import {
   setupWebRTCSignaling,
 } from "./webrtc.js";
 import crypto from "node:crypto";
+import { SERVER_ENV } from "./env.js";
 
 function createToken(byteLength = 48) {
   return crypto.randomBytes(byteLength).toString("base64url");
 }
 
-const io = new Server(8099, {
+const io = new Server(SERVER_ENV.SOCKET_IO_PORT, {
   cors: {
     origin: "*",
   },
