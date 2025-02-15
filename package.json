@@ -1,0 +1,35 @@
+{
+  "name": "zwietracht-voicechat",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "dev:client": "vite",
+    "build:client": "vite build",
+    "dev:server": "tsx watch ./src/server/server.ts"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@tailwindcss/vite": "^4.0.5",
+    "body-parser": "^1.20.3",
+    "express": "^4.21.2",
+    "mediasoup": "^3.15.3",
+    "mediasoup-client": "^3.8.1",
+    "socket.io": "^4.8.1",
+    "socket.io-client": "^4.8.1",
+    "solid-js": "^1.9.4",
+    "tailwindcss": "^4.0.5",
+    "uuid": "^11.0.5",
+    "vite-plugin-solid": "^2.11.1"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.13.1",
+    "esbuild": "^0.25.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "vite": "^6.1.0"
+  }
+}
