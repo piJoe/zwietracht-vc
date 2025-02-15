@@ -201,6 +201,7 @@ export async function connectAndProduce(
       await startProduce();
     },
     changeProducerStream: async (deviceId) => {
+      connection.producer.track.enabled = false;
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           deviceId,
@@ -246,6 +247,7 @@ export function monitorAudio(
   };
   const monitor = () => {
     if (!stream.active) {
+      // TODO: figure out why this doesn't work :(
       console.log("stream became inactive, cancel monitoring");
       return;
     }
