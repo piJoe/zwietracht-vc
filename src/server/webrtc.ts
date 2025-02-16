@@ -248,8 +248,6 @@ export async function setupWebRTCSignaling(io: Server) {
         console.log("closed producer", producer.id);
       });
 
-      producer.appData;
-
       callback({ id: producer.id });
 
       // TODO: also anounce new producer to all in room
