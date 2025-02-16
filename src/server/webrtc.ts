@@ -1,5 +1,6 @@
 import { createWorker } from "mediasoup";
 import type {
+  AppData,
   Consumer,
   DtlsParameters,
   Producer,
@@ -246,6 +247,8 @@ export async function setupWebRTCSignaling(io: Server) {
         userData.producer = null;
         console.log("closed producer", producer.id);
       });
+
+      producer.appData;
 
       callback({ id: producer.id });
 

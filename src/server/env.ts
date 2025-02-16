@@ -8,4 +8,5 @@ export const SERVER_ENV = {
   ),
   WEBRTC_ANNOUNCED_ADDRESS:
     process.env.SERVER_WEBRTC_ANNOUNCED_ADDRESS ?? "127.0.0.1",
+  SQLITE_FILE_LOCATION: process.env.SQLITE_FILE_LOCATION ?? "db.sqlite",
 };
