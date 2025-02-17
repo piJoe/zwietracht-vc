@@ -1,16 +1,11 @@
 import { Server } from "socket.io";
-import { v7 as uuidv7 } from "uuid";
 import {
   closeConsumersForProducer,
   closeOwnConsumers,
   setupWebRTCSignaling,
 } from "./webrtc.js";
-import crypto from "node:crypto";
 import { SERVER_ENV } from "./env.js";
-
-function createToken(byteLength = 48) {
-  return crypto.randomBytes(byteLength).toString("base64url");
-}
+import { createToken } from "./utils/crypto.js";
 
 const io = new Server(SERVER_ENV.SOCKET_IO_PORT, {
   cors: {

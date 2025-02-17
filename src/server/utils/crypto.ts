@@ -28,3 +28,7 @@ export function verifyPassword(
     });
   });
 }
+
+export function createToken(byteLength = 48) {
+  return randomBytes(byteLength).toString("base64url");
+}
