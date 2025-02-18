@@ -41,6 +41,7 @@ const router = await worker.createRouter({
       clockRate: 48000,
       channels: 2,
     },
+    // TODO: these might still need improvement. seems like chrome does only support h264 at up to level 3.1
     // {
     //   kind: "video",
     //   mimeType: "video/VP8",
