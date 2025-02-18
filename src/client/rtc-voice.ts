@@ -179,13 +179,26 @@ export async function connectAndProduce(
       consumer.resume();
 
       const consumerStream = new MediaStream([consumer.track]);
-      const audio = new Audio();
-      audio.srcObject = consumerStream;
-      audio.play();
 
-      consumer.observer.on("close", () => {
-        audio.remove();
-      });
+      // TODO: remove this! (testing purposes only: just append any video to the body for now)
+      if (consumer.kind === "video") {
+        const video = document.createElement("video");
+        video.srcObject = consumerStream;
+        video.play();
+        document.body.appendChild(video);
+
+        consumer.observer.on("close", () => {
+          video.remove();
+        });
+      } else {
+        const audio = new Audio();
+        audio.srcObject = consumerStream;
+        audio.play();
+
+        consumer.observer.on("close", () => {
+          audio.remove();
+        });
+      }
 
       // TODO: check if we need this lol
       // document.body.append(audio);

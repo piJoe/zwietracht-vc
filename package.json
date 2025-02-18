@@ -19,6 +19,7 @@
     "express": "^4.21.2",
     "mediasoup": "^3.15.3",
     "mediasoup-client": "^3.8.1",
+    "sdp-transform": "^2.15.0",
     "socket.io": "^4.8.1",
     "socket.io-client": "^4.8.1",
     "solid-js": "^1.9.4",

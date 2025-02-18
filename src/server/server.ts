@@ -93,6 +93,7 @@ export function finishProducerConnection(userId) {
 }
 
 await setupWebRTCSignaling(io);
+// await setupWHIP();
 
 io.on("connection", (socket) => {
   // TODO: proper auth, proper userId etc.

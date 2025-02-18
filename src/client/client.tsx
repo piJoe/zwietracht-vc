@@ -138,6 +138,8 @@ const joinVoiceConnection = async () => {
       socket
     );
     console.log("joining");
+    // TODO: delete this! (exposing connection to window so we can easily call from dev console)
+    // window.rtcConnection = self.rtcConnection;
     return;
   }
   // TODO SERVER: create voice login credentials (single use!), return in callback
