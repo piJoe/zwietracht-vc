@@ -81,6 +81,7 @@ function joinVoice(userId, channelName): string | undefined {
 
 function cleanupSession(userId) {
   leaveVoice(userId);
+  rtcConnectionSetup.delete(userId);
 }
 
 export function finishProducerConnection(userId) {
