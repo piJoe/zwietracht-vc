@@ -254,6 +254,17 @@ export function monitorAudio(
   source.connect(analyser);
 
   let frequencyData = new Uint8Array(analyser.frequencyBinCount);
+
+  const sampleRate = ctx.sampleRate;
+  const binSize = sampleRate / analyser.fftSize;
+
+  const frequencySpan = [
+    Math.max(0, Math.ceil(300 / binSize)), // 300 Hz
+    Math.min(frequencyData.length, Math.ceil(3000 / binSize)), // 3000 Hz
+  ];
+
+  console.log(frequencySpan);
+
   const monitoring = {
     speaking: false,
     speechPower: 0,
@@ -267,18 +278,12 @@ export function monitorAudio(
 
     analyser.getByteFrequencyData(frequencyData);
 
-    const sampleRate = ctx.sampleRate;
-    const binSize = sampleRate / analyser.fftSize;
-
     let sumPower = 0;
     let speechBins = 0;
 
-    for (let i = 0; i < frequencyData.length; i++) {
-      const freq = i * binSize;
-      if (freq >= 300 && freq <= 3000) {
-        sumPower += frequencyData[i];
-        speechBins++;
-      }
+    for (let i = frequencySpan[0]; i < frequencySpan[1]; i++) {
+      sumPower += frequencyData[i];
+      speechBins++;
     }
 
     const power = sumPower / speechBins;
@@ -286,7 +291,6 @@ export function monitorAudio(
 
     monitoring.speechPower = power;
     monitoring.speaking = speaking;
-
     if (callback) {
       callback(speaking, power);
     }
