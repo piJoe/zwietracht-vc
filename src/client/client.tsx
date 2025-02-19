@@ -1,8 +1,13 @@
 import { render } from "solid-js/web";
 import { createEffect, createMemo, createSignal, For } from "solid-js";
 import { io } from "socket.io-client";
-import { connectAndProduce, getAudioInputDevices } from "./rtc-voice";
+import {
+  connectAndProduce,
+  getAudioInputDevices,
+  monitorAudio,
+} from "./rtc-voice";
 import { CLIENT_ENV } from "./env";
+import type { SocketHandshakeAuth } from "../shared/socket-types";
 
 let msginput: HTMLInputElement;
 
@@ -17,125 +22,173 @@ const [deafened, setDeafened] = createSignal(false);
 const [currentVoiceRoom, setCurrentVoiceRoom] = createSignal(null);
 const [userSpeaking, setUserSpeaking] = createSignal({});
 const [audioDevices, setAudioDevices] = createSignal([]);
-
-const socket = io(CLIENT_ENV.SOCKET_IO_URL, { path: "/socket" });
+const [loggedIn, setLoggedIn] = createSignal(false);
 
 const self = {
   userId: null,
+  socket: null,
   rtcConnection: null,
 };
-socket.on("connect", () => {
-  self.userId = socket.id;
-});
 
-socket.on("channels", (channels: any) => {
-  setAllChannels(() => channels.map((c) => c.name));
-  setMessages((prev) => {
-    const messages = {};
-    channels.forEach((c) =>
-      prev[c.name] ? (messages[c.name] = prev[c.name]) : (messages[c.name] = [])
-    );
-    return messages;
+function loginSocket(username: string, password: string) {
+  const auth: SocketHandshakeAuth = {
+    method: "login",
+    username,
+    password,
+  };
+  const socket = io(CLIENT_ENV.SOCKET_IO_URL, {
+    path: "/socket",
+    auth,
   });
-  setUnread((prev) => {
-    const unread = {};
-    channels.forEach((c) =>
-      prev[c.name] ? (unread[c.name] = prev[c.name]) : (unread[c.name] = false)
-    );
-    return unread;
-  });
-  setVoiceRooms(() => {
-    const voicerooms = {};
-    channels.forEach((c) => (voicerooms[c.name] = c.voiceroom));
-    return voicerooms;
-  });
-  if (activeChannel() === null) setActiveChannel(channels[0].name);
-});
+  self.socket = socket;
 
-socket.on("chatmsg", (incomingMsg) => {
-  setMessages((prev) => ({
-    ...prev,
-    [incomingMsg.channel]: [
-      ...prev[incomingMsg.channel],
-      {
-        user: incomingMsg.user,
-        avatar: "🔵",
-        time: new Date(incomingMsg.timestamp).toLocaleTimeString(),
-        text: incomingMsg.content,
-      },
-    ],
-  }));
+  socket.on("connect", () => {
+    setLoggedIn(true);
+    console.log("logged in!", loggedIn());
+  });
+  socket.on("me", ({ userId, username }) => {
+    self.userId = userId;
+  });
 
-  if (incomingMsg.channel !== activeChannel()) {
-    setUnread((prev) => ({
+  socket.on("channels", (channels: any) => {
+    setAllChannels(() => channels.map((c) => c.name));
+    setMessages((prev) => {
+      const messages = {};
+      channels.forEach((c) =>
+        prev[c.name]
+          ? (messages[c.name] = prev[c.name])
+          : (messages[c.name] = [])
+      );
+      return messages;
+    });
+    setUnread((prev) => {
+      const unread = {};
+      channels.forEach((c) =>
+        prev[c.name]
+          ? (unread[c.name] = prev[c.name])
+          : (unread[c.name] = false)
+      );
+      return unread;
+    });
+    setVoiceRooms(() => {
+      const voicerooms = {};
+      channels.forEach((c) => (voicerooms[c.name] = c.voiceroom));
+      return voicerooms;
+    });
+    if (activeChannel() === null) setActiveChannel(channels[0].name);
+  });
+
+  socket.on("chatmsg", (incomingMsg) => {
+    setMessages((prev) => ({
       ...prev,
-      [incomingMsg.channel]: true,
+      [incomingMsg.channel]: [
+        ...prev[incomingMsg.channel],
+        {
+          user: incomingMsg.user,
+          avatar: "🔵",
+          time: new Date(incomingMsg.timestamp).toLocaleTimeString(),
+          text: incomingMsg.content,
+        },
+      ],
     }));
-  }
-});
 
-socket.on("speaking", ({ userId, isSpeaking }) => {
-  setUserSpeaking((prev) => ({
-    ...prev,
-    [userId]: isSpeaking,
-  }));
-});
+    if (incomingMsg.channel !== activeChannel()) {
+      setUnread((prev) => ({
+        ...prev,
+        [incomingMsg.channel]: true,
+      }));
+    }
+  });
 
-socket.on("joinvoice", async ({ user, channel }) => {
-  setVoiceRooms((prev) => ({
-    ...prev,
-    [channel]: [...prev[channel], user],
-  }));
+  socket.on("speaking", ({ userId, isSpeaking }) => {
+    // setUserSpeaking((prev) => ({
+    //   ...prev,
+    //   [userId]: isSpeaking,
+    // }));
+  });
 
-  if (user === self.userId) {
-    setCurrentVoiceRoom(channel);
-    const users = voiceRooms()[channel];
-    console.log(
-      "joined",
-      users,
-      users.filter((u) => u !== self.userId),
-      self.rtcConnection,
-      self.userId
-    );
-    users
-      .filter((u) => u !== self.userId)
-      .forEach(async (u) => {
-        await self.rtcConnection?.consume(u);
+  socket.on("joinvoice", async ({ user, channel }) => {
+    setVoiceRooms((prev) => ({
+      ...prev,
+      [channel]: [...prev[channel], user],
+    }));
+
+    if (user === self.userId) {
+      setCurrentVoiceRoom(channel);
+      const users = voiceRooms()[channel];
+      console.log(
+        "joined",
+        users,
+        users.filter((u) => u !== self.userId),
+        self.rtcConnection,
+        self.userId
+      );
+      users
+        .filter((u) => u !== self.userId)
+        .forEach(async (u) => {
+          const stream = await self.rtcConnection?.consume(u);
+          monitorAudio(stream, (speaking: boolean, power: number) => {
+            if (power > 0) {
+              setUserSpeaking((prev) => ({
+                ...prev,
+                [u]: true,
+              }));
+            } else {
+              setUserSpeaking((prev) => ({
+                ...prev,
+                [u]: false,
+              }));
+            }
+          });
+        });
+
+      const devices = await getAudioInputDevices();
+      console.log(devices);
+      setAudioDevices(devices);
+    } else {
+      const stream = await self.rtcConnection?.consume(user);
+      monitorAudio(stream, (speaking: boolean, power: number) => {
+        if (power > 0) {
+          setUserSpeaking((prev) => ({
+            ...prev,
+            [user]: true,
+          }));
+        } else {
+          setUserSpeaking((prev) => ({
+            ...prev,
+            [user]: false,
+          }));
+        }
       });
+    }
+  });
 
-    const devices = await getAudioInputDevices();
-    console.log(devices);
-    setAudioDevices(devices);
-  } else {
-    self.rtcConnection?.consume(user);
-  }
-});
+  socket.on("leavevoice", ({ user, channel }) => {
+    setVoiceRooms((prev) => ({
+      ...prev,
+      [channel]: prev[channel].filter((u) => u !== user),
+    }));
 
-socket.on("leavevoice", ({ user, channel }) => {
-  setVoiceRooms((prev) => ({
-    ...prev,
-    [channel]: prev[channel].filter((u) => u !== user),
-  }));
-
-  if (user !== self.userId) {
-    self.rtcConnection?.closeConsume(user);
-  }
-});
+    if (user !== self.userId) {
+      self.rtcConnection?.closeConsume(user);
+    }
+  });
+}
 
 const sendMessage = () => {
   if (!input().trim()) return;
   const content = input();
-  socket.emit("chatmsg", { channel: activeChannel(), content });
+  self.socket.emit("chatmsg", { channel: activeChannel(), content });
   setInput("");
 };
 
 const joinVoiceConnection = async () => {
-  const res = await socket.emitWithAck("joinvoice", activeChannel());
+  const res = await self.socket.emitWithAck("joinvoice", activeChannel());
   if (res && res.connectionToken) {
     self.rtcConnection = await connectAndProduce(
       self.userId,
       res.connectionToken,
-      socket
+      self.socket
     );
     console.log("joining");
     // TODO: delete this! (exposing connection to window so we can easily call from dev console)
@@ -155,7 +208,7 @@ const joinVoiceConnection = async () => {
 };
 
 const hangupVoiceConnection = () => {
-  socket.emit("leavevoice");
+  self.socket.emit("leavevoice");
   //   TODO: kill producer completly! completley kill the session and clean up on server as well!!
   self.rtcConnection.stopProduce();
   setCurrentVoiceRoom(null);
@@ -200,7 +253,7 @@ function MessageList() {
   );
 }
 
-export default function ChatApp() {
+function ChatApp() {
   return (
     <div class="flex h-screen bg-gray-900 text-white select-none">
       {/* Left Sidebar - Channel List & Voice Room */}
@@ -339,7 +392,82 @@ export default function ChatApp() {
   );
 }
 
-render(() => <ChatApp />, document.body);
+function Login() {
+  const [username, setUsername] = createSignal("");
+  const [password, setPassword] = createSignal("");
+
+  // const login = async () => {
+  //   // TODO: use websocket connection for login?
+  //   const res = await fetch("/login", {
+  //     method: "POST",
+  //     body: JSON.stringify({
+  //       username: username(),
+  //       password: password(),
+  //     }),
+  //   });
+  // };
+  //
+  const login = async () => {
+    // TODO: use websocket connection for login?
+    loginSocket(username(), password());
+  };
+
+  // const register = async () => {
+  //   // TODO: use websocket connection for register?
+  //   const res = await fetch("/register", {
+  //     method: "POST",
+  //     body: JSON.stringify({
+  //       username: username(),
+  //       password: password(),
+  //     }),
+  //   });
+  // };
+
+  return (
+    <div class="flex items-center justify-center h-screen bg-gray-900 text-white select-none">
+      <div class="flex flex-col gap-2 p-4 bg-gray-800 rounded">
+        <h2 class="font-bold text-lg mb-2">Sign in to Server GEILO3000</h2>
+        <form class="flex flex-col gap-2" onSubmit={(e) => e.preventDefault()}>
+          <input
+            class="outline-none bg-gray-700 rounded px-2 py-1"
+            type="text"
+            placeholder="Username"
+            value={username()}
+            autofocus
+            onInput={(e) => setUsername(e.target.value)}
+          ></input>
+          <input
+            class="outline-none bg-gray-700 rounded px-2 py-1"
+            type="password"
+            placeholder="Password"
+            value={password()}
+            onInput={(e) => setPassword(e.target.value)}
+          ></input>
+          <div class="flex flex-row gap-2 mt-2">
+            <button
+              type="submit"
+              class="w-full bg-gray-700 rounded px-2 py-1 cursor-pointer"
+              onClick={login}
+            >
+              Login
+            </button>
+            {/* <button
+            class="w-full bg-gray-700 rounded px-2 py-1 cursor-pointer"
+            onClick={register}
+          >
+            Register
+          </button> */}
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+render(() => {
+  return <>{loggedIn() ? <ChatApp /> : <Login />}</>;
+}, document.body);
+
 document.body.addEventListener("keydown", (e) => {
   if (msginput && document.activeElement !== msginput) {
     msginput.focus();

@@ -3,7 +3,7 @@ module.exports = function migrate(db) {
     `CREATE TABLE users (
         id BLOB PRIMARY KEY NOT NULL, 
         name TEXT UNIQUE NOT NULL, 
-        password TEXT NOT NULL
+        pw_hash TEXT NOT NULL
     )`
   );
 };

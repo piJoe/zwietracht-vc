@@ -6,6 +6,8 @@ import {
 } from "./webrtc.js";
 import { SERVER_ENV } from "./env.js";
 import { createToken } from "./utils/crypto.js";
+import type { SocketHandshakeAuth } from "../shared/socket-types.js";
+import { registerOrLoginUser } from "./user.js";
 
 const io = new Server(SERVER_ENV.SOCKET_IO_PORT, {
   cors: {
@@ -95,9 +97,29 @@ export function finishProducerConnection(userId) {
 await setupWebRTCSignaling(io);
 // await setupWHIP();
 
+io.use(async (socket, next) => {
+  const auth = socket.handshake.auth as SocketHandshakeAuth;
+  if (auth.method !== "login") {
+    next(new Error("not authorized"));
+    socket.disconnect();
+    return;
+  }
+
+  // TODO: add proper authentication with db lookup and shit
+  const user = await registerOrLoginUser(auth.username, auth.password);
+  if (!user) {
+    next(new Error("not authorized"));
+    socket.disconnect();
+    return;
+  }
+
+  socket.data = { userId: user.id, username: user.username };
+  socket.emit("me", { userId: user.id, username: user.username });
+  next();
+});
 io.on("connection", (socket) => {
   // TODO: proper auth, proper userId etc.
-  const userId = socket.id;
+  const { userId, username } = socket.data;
   console.log("connection", userId);
 
   socket.emit("channels", channels);
@@ -108,7 +130,7 @@ io.on("connection", (socket) => {
     io.emit("chatmsg", {
       channel: msg.channel,
       content: msg.content,
-      user: userId,
+      user: username,
       timestamp: Date.now(),
     });
   });

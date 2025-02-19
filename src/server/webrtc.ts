@@ -123,14 +123,23 @@ export function closeOwnConsumers(userId: string) {
 export async function setupWebRTCSignaling(io: Server) {
   const rtcIO = io.of("/webrtc");
 
-  rtcIO.on("connection", (socket) => {
+  rtcIO.use((socket, next) => {
     if (!socket.handshake.auth) {
+      next(new Error("not authorized"));
       socket.disconnect();
       return;
     }
 
     const { userId, token } = socket.handshake.auth;
-    // TODO: check if userId and token is valid
+
+    // TODO: check if token exists, disconnect if not. fetch user by token and get userId
+    socket.data = { userId, token };
+
+    next();
+  });
+
+  rtcIO.on("connection", (socket) => {
+    const { userId, token } = socket.data;
 
     // TODO: make this into proper store, globally available (or at least for room) per user
     const userData: {

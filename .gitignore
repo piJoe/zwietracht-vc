@@ -3,4 +3,4 @@ node_modules
 dist
 dist-server
 .env
-db.sqlite
+db.sqlite*
