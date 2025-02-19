@@ -23,6 +23,7 @@ const [currentVoiceRoom, setCurrentVoiceRoom] = createSignal(null);
 const [userSpeaking, setUserSpeaking] = createSignal({});
 const [audioDevices, setAudioDevices] = createSignal([]);
 const [loggedIn, setLoggedIn] = createSignal(false);
+const [userMap, setUserMap] = createSignal({});
 
 const self = {
   userId: null,
@@ -48,6 +49,18 @@ function loginSocket(username: string, password: string) {
   });
   socket.on("me", ({ userId, username }) => {
     self.userId = userId;
+
+    setUserMap((prev) => ({
+      ...prev,
+      [userId]: username,
+    }));
+  });
+
+  socket.on("user", ({ userId, username }) => {
+    setUserMap((prev) => ({
+      ...prev,
+      [userId]: username,
+    }));
   });
 
   socket.on("channels", (channels: any) => {
@@ -242,7 +255,8 @@ function MessageList() {
             <div class="text-2xl select-none">{msg.avatar}</div>
             <div>
               <div class="text-sm font-bold">
-                {msg.user} <span class="text-xs text-gray-500">{msg.time}</span>
+                {userMap()[msg.user] ?? msg.user}{" "}
+                <span class="text-xs text-gray-500">{msg.time}</span>
               </div>
               <div>{msg.text}</div>
             </div>
@@ -289,7 +303,7 @@ function ChatApp() {
                           >
                             🔵
                           </div>
-                          {user}
+                          {userMap()[user] ?? user}
                         </div>
                       )}
                     </For>

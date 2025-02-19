@@ -7,7 +7,7 @@ import {
 import { SERVER_ENV } from "./env.js";
 import { createToken } from "./utils/crypto.js";
 import type { SocketHandshakeAuth } from "../shared/socket-types.js";
-import { registerOrLoginUser } from "./user.js";
+import { getAllUsers, registerOrLoginUser } from "./user.js";
 
 const io = new Server(SERVER_ENV.SOCKET_IO_PORT, {
   cors: {
@@ -114,16 +114,21 @@ io.use(async (socket, next) => {
     return;
   }
 
-  socket.data = { userId: user.id, username: user.username };
+  socket.data = { user };
   socket.emit("me", { userId: user.id, username: user.username });
   next();
 });
 io.on("connection", (socket) => {
   // TODO: proper auth, proper userId etc.
-  const { userId, username } = socket.data;
+  const { id: userId, username } = socket.data.user;
   console.log("connection", userId);
 
   socket.emit("channels", channels);
+
+  io.emit("user", { userId, username });
+  getAllUsers().forEach((u) => {
+    socket.emit("user", { userId: u.id, username: u.username });
+  });
 
   socket.on("chatmsg", (msg) => {
     if (!channelExists(msg.channel)) return;
@@ -131,7 +136,7 @@ io.on("connection", (socket) => {
     io.emit("chatmsg", {
       channel: msg.channel,
       content: msg.content,
-      user: username,
+      user: userId,
       timestamp: Date.now(),
     });
   });
@@ -157,5 +162,6 @@ io.on("connection", (socket) => {
 
   socket.on("disconnect", () => {
     cleanupSession(userId);
+    socket.data.user.disconnect();
   });
 });

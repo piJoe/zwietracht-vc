@@ -5,13 +5,24 @@ import { dbGetUserByName, dbInsertUser } from "./db/db.js";
 import { hashPassword, verifyPassword } from "./utils/crypto.js";
 import { generateUUID } from "./utils/uuid.js";
 
+const connectedUsers: Set<User> = new Set();
 export class User {
   private isGuest: boolean;
   private sessionToken: string;
   private websocket: Socket;
   private connectedRoom: VoiceRoom; // TODO: maybe don't connect to room but to channel?
   private rtcSession: RTCSession;
-  constructor(public readonly id: string, public readonly username: string) {}
+  constructor(public readonly id: string, public readonly username: string) {
+    connectedUsers.add(this);
+  }
+
+  disconnect() {
+    connectedUsers.delete(this);
+  }
+}
+
+export function getAllUsers() {
+  return [...connectedUsers.values()];
 }
 
 export async function loginUser(name: string, password: string) {
